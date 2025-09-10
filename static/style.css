@@ -1,0 +1,48 @@
+/* Общий стиль */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    color: #fff;
+    text-align: center;
+}
+
+/* Заголовок */
+h1 {
+    font-size: 3rem;
+    margin-bottom: 30px;
+    text-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+}
+
+/* Кнопка */
+button {
+    padding: 15px 40px;
+    font-size: 1.5rem;
+    border: none;
+    border-radius: 12px;
+    background: #fff;
+    color: #2575fc;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+}
+
+button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 20px rgba(0,0,0,0.3);
+    background: #f0f0f0;
+}
+
+/* Footer text */
+footer {
+    position: absolute;
+    bottom: 20px;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}

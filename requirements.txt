@@ -1,0 +1,5 @@
+flask
+pyTelegramBotAPI
+requests
+telebot
+gunicorn
