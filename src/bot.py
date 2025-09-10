@@ -1,6 +1,8 @@
 import telebot
 from telebot import types
 from config import API_TOKEN, CRYPTO_PAY_TOKEN, CRYPTO_PAY_API
+import requests
+import json
 
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -42,7 +44,7 @@ def send_welcome(message):
     webapp_markup.add(
         types.InlineKeyboardButton(
             "🌐 Open Mini App",
-            web_app=types.WebAppInfo(url="https://your-webapp-url.com")  # Замените на свой URL!
+            web_app=types.WebAppInfo(url="https://bot-tg-b2bs.onrender.com/")  # Замените на свой URL!
         )
     )
     bot.send_message(
@@ -63,5 +65,30 @@ def set_language(message):
 def send_help(message):
     lang = get_lang(message)
     bot.send_message(message.chat.id, texts[lang]['commands'])
+
+@bot.message_handler(content_types=['web_app_data'])
+def handle_web_app_data(message):
+    data = json.loads(message.web_app_data.data)
+    plan = data.get('plan')
+    price = data.get('price')
+    # Создаем счет через Crypto Pay API
+    pay_url = create_crypto_pay_invoice(plan, price, message.from_user.id)
+    bot.send_message(
+        message.chat.id,
+        f"Вы выбрали тариф: {plan} (${price})\n\nОплатите по ссылке:\n{pay_url}"
+    )
+
+def create_crypto_pay_invoice(plan, price, user_id):
+    url = "https://pay.crypt.bot/api/createInvoice"
+    headers = {"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN}
+    data = {
+        "asset": "USDT",  # или другая валюта
+        "amount": price,
+        "description": f"VPN тариф: {plan}",
+        "hidden_message": f"User ID: {user_id}"
+    }
+    resp = requests.post(url, json=data, headers=headers)
+    invoice = resp.json()
+    return invoice['result']['pay_url']
 
 bot.polling()
