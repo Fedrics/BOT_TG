@@ -68,6 +68,7 @@ def send_help(message):
 
 @bot.message_handler(content_types=['web_app_data'])
 def handle_web_app_data(message):
+    print("Получены данные из Mini App:", message.web_app_data.data)  # <--- добавьте эту строку
     data = json.loads(message.web_app_data.data)
     plan = data.get('plan')
     price = data.get('price')
@@ -82,13 +83,15 @@ def create_crypto_pay_invoice(plan, price, user_id):
     url = "https://pay.crypt.bot/api/createInvoice"
     headers = {"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN}
     data = {
-        "asset": "USDT",  # или другая валюта
+        "asset": "USDT",
         "amount": price,
         "description": f"VPN тариф: {plan}",
         "hidden_message": f"User ID: {user_id}"
     }
     resp = requests.post(url, json=data, headers=headers)
+    print("Ответ Crypto Pay:", resp.text)  # <--- добавьте эту строку
     invoice = resp.json()
     return invoice['result']['pay_url']
 
-bot.polling()
+if __name__ == "__main__":
+    bot.polling(none_stop=True)
