@@ -74,4 +74,5 @@ def create_crypto_pay_invoice(plan, price, user_id):
     return invoice['result']['pay_url']
 
 if __name__ == "__main__":
+    print("Бот запущен и ожидает события...")
     bot.polling(none_stop=True)
