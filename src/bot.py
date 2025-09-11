@@ -120,6 +120,24 @@ def handle_web_app_data(message):
         except:
             pass
 
+@bot.message_handler(commands=['testpay'])
+def cmd_testpay(message):
+    # тестовый вызов инвойса для проверки работы CryptoPay и токена
+    try:
+        bot.send_message(message.chat.id, "Запускаю тестовый createInvoice...")
+        pay_url = create_crypto_pay_invoice("TestPlan", 0.01, message.from_user.id)
+        bot.send_message(message.chat.id, f"Результат create_invoice: {pay_url or 'None — смотрите логи'}")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Ошибка теста: {e}")
+
+# опционально: лог всех входящих сообщений, чтобы увидеть web_app_data, если он приходит
+@bot.message_handler(func=lambda m: True, content_types=['text', 'web_app_data', 'photo', 'document', 'audio'])
+def log_all(m):
+    try:
+        print("INCOMING MESSAGE:", repr(m))
+    except Exception:
+        pass
+
 if __name__ == "__main__":
     print("Подготовка к запуску бота...")
     # удаляем webhook, если был установлен
