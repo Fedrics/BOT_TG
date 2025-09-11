@@ -3,11 +3,10 @@ import hmac
 import hashlib 
 import json
 from urllib.parse import parse_qs
-from flask import Flask, send_from_directory, request, jsonify
-from src.config import API_TOKEN, CRYPTO_PAY_TOKEN
+import requests
 import telebot
 from telebot import types
-import requests
+from src.config import API_TOKEN, CRYPTO_PAY_TOKEN
 
 CRYPTO_PAY_API = "https://pay.crypt.bot/api"
 
@@ -163,4 +162,5 @@ def api_order():
     return jsonify(ok=True)
 
 if __name__ == "__main__":
+    print("Бот запущен и ожидает события...")
     bot.polling(none_stop=True)

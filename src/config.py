@@ -1,6 +1,8 @@
-API_TOKEN = '8209554795:AAE_14T4HcfzG-OQaxe0cIEwc3dIOEZdy3Q'
-CRYPTO_PAY_TOKEN = '458139:AAgwFIbyAD3b47y3F72NSg3eNfUlKgsXrFz'
-CRYPTO_PAY_API = 'https://pay.crypt.bot/api/'
+import os
+
+API_TOKEN = os.environ.get("API_TOKEN", "")
+CRYPTO_PAY_TOKEN = os.environ.get("CRYPTO_PAY_TOKEN", "")
+CRYPTO_PAY_API = "https://pay.crypt.bot/api"
 
 from flask import Flask, render_template
 
