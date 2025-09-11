@@ -13,29 +13,37 @@ def index():
     return send_from_directory('webapp', 'index.html')
 
 def verify_webapp_data(init_data: str, bot_token: str) -> bool:
-    # https://core.telegram.org/bots/webapps#validating-data-received-via-the-web-app
-    parsed = parse_qs(init_data, keep_blank_values=True)
-    received_hash = parsed.get('hash', [''])[0]
-    data_check_arr = []
-    for k, v in parsed.items():
-        if k == 'hash':
-            continue
-        data_check_arr.append(f"{k}={v[0]}")
-    data_check_arr.sort()
-    data_check_string = "\n".join(data_check_arr)
-    secret_key = hmac.new(b'WebAppData', bot_token.encode(), hashlib.sha256).digest()
-    calc_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-    return hmac.compare_digest(calc_hash, received_hash)
+    try:
+        parsed = parse_qs(init_data, keep_blank_values=True)
+        received_hash = parsed.get('hash', [''])[0]
+        # build data_check_string from all keys except hash, keys sorted
+        data_check_arr = []
+        for k in sorted(parsed.keys()):
+            if k == 'hash': 
+                continue
+            v = parsed[k][0]
+            data_check_arr.append(f"{k}={v}")
+        data_check_string = "\n".join(data_check_arr)
+        # correct secret derivation: SHA256(bot_token)
+        secret_key = hashlib.sha256(bot_token.encode()).digest()
+        calc_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+        print("verify_webapp_data: data_check_string=", data_check_string)
+        print("verify_webapp_data: received_hash=", received_hash, "calc_hash=", calc_hash)
+        return hmac.compare_digest(calc_hash, received_hash)
+    except Exception as e:
+        print("verify_webapp_data error:", e)
+        return False
 
 def get_user_id_from_init(init_data: str):
-    parsed = parse_qs(init_data, keep_blank_values=True)
-    user_json = parsed.get('user', [''])[0]
-    if not user_json:
-        return None
     try:
+        parsed = parse_qs(init_data, keep_blank_values=True)
+        user_json = parsed.get('user', [''])[0]
+        if not user_json:
+            return None
         user = json.loads(user_json)
         return int(user.get('id'))
-    except Exception:
+    except Exception as e:
+        print("get_user_id_from_init error:", e, "raw:", init_data[:200])
         return None
 
 def create_crypto_pay_invoice(plan: str, price, user_id: int):
