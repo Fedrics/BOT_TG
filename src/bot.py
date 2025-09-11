@@ -42,7 +42,7 @@ def send_welcome(message):
 def set_language(message):
     lang = 'en' if message.text == "English" else 'ru'
     user_lang[message.from_user.id] = lang
-    bot.send_message(message.chat.id, "✅", reply_markup=types.ReplyKeyboardRemove())
+    bot.send_message(message.chat.id, "✅!", reply_markup=types.ReplyKeyboardRemove())
     # Кнопка для открытия Mini App
     webapp_markup = types.InlineKeyboardMarkup()
     webapp_markup.add(
