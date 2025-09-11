@@ -1,12 +1,13 @@
 import os
+import time
 import json
+import traceback
 import requests
 import telebot
 from telebot import types
-from src.config import API_TOKEN, CRYPTO_PAY_TOKEN
-import traceback
+from src.config import API_TOKEN, CRYPTO_PAY_TOKEN, CRYPTO_PAY_API
 
-bot = telebot.TeleBot(API_TOKEN)
+bot = telebot.TeleBot(API_TOKEN, parse_mode='HTML')
 user_lang = {}
 
 texts = {
@@ -35,12 +36,15 @@ def send_welcome(message):
 def set_language(message):
     lang = 'en' if message.text == "English" else 'ru'
     user_lang[message.from_user.id] = lang
-    bot.send_message(message.chat.id, "✅", reply_markup=types.ReplyKeyboardRemove())
+    try:
+        bot.send_message(message.chat.id, "✅", reply_markup=types.ReplyKeyboardRemove())
+    except Exception:
+        pass
     webapp_markup = types.InlineKeyboardMarkup()
     webapp_markup.add(
         types.InlineKeyboardButton(
             "🌐 Open VPN Shop" if lang == 'en' else "🌐 Открыть магазин",
-            web_app=types.WebAppInfo(url="https://bot-tg-aai9.onrender.com/")
+            web_app=types.WebAppInfo(url=os.environ.get("MINI_APP_URL", "https://bot-tg-aai9.onrender.com/"))
         )
     )
     bot.send_message(message.chat.id, texts[lang]['shop'], reply_markup=webapp_markup)
@@ -55,7 +59,7 @@ def create_crypto_pay_invoice(plan: str, price, user_id):
         }
         print("Создаём инвойс CryptoPay, payload:", payload)
         resp = requests.post(
-            "https://pay.crypt.bot/api/createInvoice",
+            f"{CRYPTO_PAY_API}/createInvoice",
             json=payload,
             headers={"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN},
             timeout=15
@@ -81,12 +85,21 @@ def handle_web_app_data(message):
         print("RAW web_app_data object:", raw)
         if not raw or not getattr(raw, 'data', None):
             print("Нет web_app_data.data в сообщении")
-            bot.send_message(message.chat.id, "Не получены данные из Mini App. Откройте Mini App через кнопку в Telegram.")
+            try:
+                bot.send_message(message.chat.id, "Не получены данные из Mini App. Откройте Mini App через кнопку в Telegram.")
+            except Exception:
+                pass
             return
 
         print("Получены данные из Mini App:", message.web_app_data.data)
         lang = get_lang(message)
-        data = json.loads(message.web_app_data.data)
+        try:
+            data = json.loads(message.web_app_data.data)
+        except Exception as e:
+            print("JSON parse error:", e)
+            bot.send_message(message.chat.id, "Неправильный формат данных из Mini App.")
+            return
+
         plan = data.get('plan')
         price = data.get('price')
         if not plan or price is None:
@@ -108,25 +121,23 @@ def handle_web_app_data(message):
             pass
 
 if __name__ == "__main__":
-    import time
-    print("Подготовка к запуску polling...")
+    print("Подготовка к запуску бота...")
+    # удаляем webhook, если был установлен
     try:
-        # убедиться, что webhook снят
-        try:
-            bot.remove_webhook()
-            print("Webhook removed (if existed).")
-        except Exception as e:
-            print("Не удалось явно удалить webhook:", e)
+        bot.remove_webhook()
+        print("Webhook removed (if existed).")
+    except Exception as e:
+        print("Не удалось удалить webhook явно:", e)
 
-        # запуск polling в цикле с обработкой ошибок (например, 409)
-        while True:
-            try:
-                print("Бот запущен и ожидает события...")
-                bot.polling(none_stop=True)
-            except Exception as e:
-                print("Polling упал с исключением:", repr(e))
-                # если это конфликт 409 — значит где-то ещё запущен polling/webhook
-                # подождём и попытаемся снова (не форсировать)
-                time.sleep(5)
-    except KeyboardInterrupt:
-        print("Остановка пользователем.")
+    # защитный цикл для polling с логированием
+    while True:
+        try:
+            print("Бот запущен и ожидает события...")
+            bot.polling(none_stop=True)
+        except Exception as e:
+            err = repr(e)
+            print("Polling упал с исключением:", err)
+            # конфликт 409 (webhook или другой polling) — логируем и ждем
+            if '409' in err or 'Conflict' in err:
+                print("Конфликт getUpdates/webhook. Убедитесь, что не запущен другой инстанс и webhook удалён.")
+            time.sleep(5)

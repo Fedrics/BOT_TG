@@ -1,233 +1,65 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>VPN Mini App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link href="https://fonts.googleapis.com/css?family=Montserrat:700,400&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: 'Montserrat', Arial, sans-serif;
-      color: #fff;
-      text-align: center;
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      align-items: center;
-      position: relative;
-      overflow: hidden;
-      background: #0a0a23;
-    }
-    #lava-canvas {
-      position: fixed;
-      top: 0; left: 0; width: 100vw; height: 100vh;
-      z-index: 0;
-      pointer-events: none;
-      filter: blur(18px) brightness(1.1) saturate(1.3);
-    }
-    h1 {
-      margin-top: 48px;
-      margin-bottom: 36px;
-      font-size: 2.3rem;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-shadow: 2px 2px 18px rgba(0,0,0,0.22);
-      z-index: 1;
-      position: relative;
-    }
-    h2 {
-      margin-top: 48px;
-      margin-bottom: 36px;
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-shadow: 2px 2px 18px rgba(0,0,0,0.22);
-      z-index: 1;
-      position: relative;
-    }
-    .plans-column {
-      display: flex;
-      flex-direction: column;
-      gap: 32px;
-      width: 100%;
-      max-width: 390px;
-      margin: 0 auto 0 auto;
-      z-index: 1;
-      position: relative;
-    }
-    .glass-btn {
-      position: relative;
-      width: 100%;
-      padding: 32px 10px 26px 10px;
-      font-size: 1.35rem;
-      font-family: 'Montserrat', Arial, sans-serif;
-      font-weight: 700;
-      border: none;
-      border-radius: 28px;
-      background: rgba(30, 60, 120, 0.22);
-      color: #fff;
-      box-shadow:
-        0 8px 32px 0 rgba(31, 38, 135, 0.22),
-        0 1.5px 8px 0 rgba(0,0,0,0.09);
-      cursor: pointer;
-      transition:
-        background 0.3s cubic-bezier(.4,2,.6,1),
-        box-shadow 0.25s cubic-bezier(.4,2,.6,1),
-        transform 0.18s cubic-bezier(.4,2,.6,1);
-      outline: none;
-      overflow: hidden;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      isolation: isolate;
-      backdrop-filter: blur(18px) saturate(1.7);
-      -webkit-backdrop-filter: blur(18px) saturate(1.7);
-      opacity: 0.92;
-    }
-    .glass-btn:hover, .glass-btn:focus {
-      background: rgba(40, 80, 180, 0.28);
-      box-shadow:
-        0 12px 36px 0 rgba(25, 118, 210, 0.28),
-        0 1.5px 8px 0 rgba(0,0,0,0.09);
-      transform: translateY(-2px) scale(1.025);
-      opacity: 1;
-    }
-    .glass-btn:active {
-      background: rgba(25, 50, 100, 0.32);
-      box-shadow:
-        0 4px 16px 0 rgba(31, 38, 135, 0.13),
-        0 1.5px 8px 0 rgba(0,0,0,0.09);
-      transform: scale(0.97);
-      opacity: 0.98;
-    }
-    .plan-desc {
-      font-size: 1.08rem;
-      font-weight: 400;
-      margin-top: 12px;
-      color: #b3c6ff;
-      font-family: 'Montserrat', Arial, sans-serif;
-      letter-spacing: 0.2px;
-      z-index: 3;
-    }
-    .close-btn {
-      margin-top: 38px;
-      background: none;
-      border: none;
-      color: #fff;
-      font-size: 1.05rem;
-      text-decoration: underline;
-      cursor: pointer;
-      opacity: 0.8;
-      font-family: 'Montserrat', Arial, sans-serif;
-      z-index: 1;
-      position: relative;
-    }
-    footer {
-      margin-top: auto;
-      margin-bottom: 22px;
-      font-size: 1.02rem;
-      opacity: 0.7;
-      font-family: 'Montserrat', Arial, sans-serif;
-      z-index: 1;
-      position: relative;
-    }
+    body{font-family:Arial,Helvetica,sans-serif;background:#07102a;color:#fff;display:flex;flex-direction:column;align-items:center;min-height:100vh;margin:0;padding:24px;}
+    h1{margin-top:24px;font-size:1.6rem}
+    .plans{display:flex;flex-direction:column;gap:16px;width:100%;max-width:420px;margin-top:18px;}
+    .plan{background:linear-gradient(135deg,rgba(20,60,120,0.35),rgba(10,20,60,0.35));padding:22px;border-radius:16px;border:1px solid rgba(255,255,255,0.04);cursor:pointer;text-align:center;font-weight:700}
+    .desc{font-size:0.95rem;font-weight:400;color:#b6caff;margin-top:8px}
+    .close{margin-top:28px;background:none;border:none;color:#9fb7ff;cursor:pointer;text-decoration:underline}
   </style>
 </head>
 <body>
-  <canvas id="lava-canvas"></canvas>
-  <h1>↓ Выбери План ↓</h1>
-  <div class="plans-column">
-    <button class="glass-btn" onclick="choosePlan('Basic', 5)">
-      <span>Basic — $5</span>
-      <div class="plan-desc">1 месяц, базовая скорость</div>
-    </button>
-    <button class="glass-btn" onclick="choosePlan('Premium', 10)">
-      <span>Premium — $10</span>
-      <div class="plan-desc">3 месяца, высокая скорость</div>
-    </button>
-    <button class="glass-btn" onclick="choosePlan('Ultimate', 15)">
-      <span>Ultimate — $15</span>
-      <div class="plan-desc">12 месяцев, максимальная скорость</div>
-    </button>
+  <h1>↓ Выбери план ↓</h1>
+  <div class="plans">
+    <div class="plan" id="basic">
+      Basic — $5
+      <div class="desc">1 месяц, базовая скорость</div>
+    </div>
+    <div class="plan" id="premium">
+      Premium — $10
+      <div class="desc">3 месяца, высокая скорость</div>
+    </div>
+    <div class="plan" id="ultimate">
+      Ultimate — $15
+      <div class="desc">12 месяцев, максимальная скорость</div>
+    </div>
   </div>
-  <button class="close-btn" onclick="Telegram.WebApp.close()">Close App</button>
-  <footer>Powered by Telegram Mini App</footer>
+  <button class="close" onclick="Telegram.WebApp.close()">Close App</button>
+
   <script>
-    // Лавовая лампа на canvas
-    const canvas = document.getElementById('lava-canvas');
-    const ctx = canvas.getContext('2d');
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    let blobs = [];
-    const colors = [
-      ['#0d47a1', '#1976d2'],
-      ['#0a0a23', '#0d47a1'],
-      ['#1976d2', '#0a0a23']
-    ];
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      try { tg.ready(); } catch(e){ console.warn('tg.ready', e); }
+    } else {
+      console.warn('Telegram.WebApp not available');
+    }
 
-    function createBlobs() {
-      blobs = [];
-      for (let i = 0; i < 7; i++) {
-        const r = 90 + Math.random() * 80;
-        blobs.push({
-          x: Math.random() * width,
-          y: Math.random() * height,
-          r,
-          dx: (Math.random() - 0.5) * 1.2,
-          dy: (Math.random() - 0.5) * 1.2,
-          color: colors[i % colors.length]
-        });
+    function sendPayload(name, price) {
+      const payload = { plan: name, price: price, ts: Date.now() };
+      console.log('Preparing to sendData:', payload);
+      if (!window.Telegram || !Telegram.WebApp || !Telegram.WebApp.sendData) {
+        alert('Откройте мини‑приложение через кнопку в боте (в Telegram).');
+        return;
+      }
+      try {
+        Telegram.WebApp.sendData(JSON.stringify(payload));
+        console.log('Telegram.WebApp.sendData called');
+        try { Telegram.WebApp.showAlert('Вы выбрали: ' + name + ' ($' + price + ') — данные отправлены боту.'); } catch(e){ alert('Вы выбрали: ' + name + ' ($' + price + ')'); }
+      } catch (err) {
+        console.error('sendData error', err);
+        try { Telegram.WebApp.showAlert('Ошибка отправки: ' + err.message); } catch(e){ alert('Ошибка отправки: ' + err.message); }
       }
     }
 
-    function resize() {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
-      createBlobs();
-    }
-    resize();
-    window.addEventListener('resize', resize);
-
-    function drawLava() {
-      ctx.clearRect(0, 0, width, height);
-      for (const blob of blobs) {
-        const grad = ctx.createRadialGradient(blob.x, blob.y, blob.r * 0.3, blob.x, blob.y, blob.r);
-        grad.addColorStop(0, blob.color[0]);
-        grad.addColorStop(1, blob.color[1]);
-        ctx.globalAlpha = 0.55;
-        ctx.beginPath();
-        ctx.arc(blob.x, blob.y, blob.r, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.fillStyle = grad;
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    function animate() {
-      for (const blob of blobs) {
-        blob.x += blob.dx;
-        blob.y += blob.dy;
-        // Отскок от краёв
-        if (blob.x - blob.r < 0 || blob.x + blob.r > width) blob.dx *= -1;
-        if (blob.y - blob.r < 0 || blob.y + blob.r > height) blob.dy *= -1;
-      }
-      drawLava();
-      requestAnimationFrame(animate);
-    }
-    animate();
-
-    function choosePlan(name, price) {
-      Telegram.WebApp.sendData(JSON.stringify({plan: name, price: price}));
-    }
-    Telegram.WebApp.ready();
+    document.getElementById('basic').addEventListener('click', ()=> sendPayload('Basic', 5));
+    document.getElementById('premium').addEventListener('click', ()=> sendPayload('Premium', 10));
+    document.getElementById('ultimate').addEventListener('click', ()=> sendPayload('Ultimate', 15));
   </script>
 </body>
 </html>
