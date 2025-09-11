@@ -108,5 +108,25 @@ def handle_web_app_data(message):
             pass
 
 if __name__ == "__main__":
-    print("Бот запущен и ожидает события...")
-    bot.polling(none_stop=True)
+    import time
+    print("Подготовка к запуску polling...")
+    try:
+        # убедиться, что webhook снят
+        try:
+            bot.remove_webhook()
+            print("Webhook removed (if existed).")
+        except Exception as e:
+            print("Не удалось явно удалить webhook:", e)
+
+        # запуск polling в цикле с обработкой ошибок (например, 409)
+        while True:
+            try:
+                print("Бот запущен и ожидает события...")
+                bot.polling(none_stop=True)
+            except Exception as e:
+                print("Polling упал с исключением:", repr(e))
+                # если это конфликт 409 — значит где-то ещё запущен polling/webhook
+                # подождём и попытаемся снова (не форсировать)
+                time.sleep(5)
+    except KeyboardInterrupt:
+        print("Остановка пользователем.")
