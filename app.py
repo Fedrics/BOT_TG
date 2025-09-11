@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os, hmac, hashlib, json, requests, time
 from urllib.parse import parse_qs
+import secrets
+import uuid
+from datetime import datetime, timedelta
 
 app = Flask(__name__, static_folder='static', template_folder='webapp')
 
@@ -125,6 +128,112 @@ def api_order():
         return jsonify(ok=False, error="send_failed"), 500
 
     return jsonify(ok=True, pay_url=pay_url, verified=bool(verified), duplicate=False)
+
+# helper: generate hidify VPN credentials (mock / extend for real Hidify API)
+def generate_hidify_credentials(plan: str, user_id: int):
+    """
+    Возвращает dict с параметрами подключения.
+    Для production замените на реальный вызов Hidify API.
+    """
+    # map plan -> days
+    mapping = {
+        "1 месяц": 30,
+        "3 месяца": 90,
+        "6 месяцев": 180,
+        "12 месяцев": 365,
+        "Basic": 30, "Premium": 90, "Ultimate": 365
+    }
+    days = mapping.get(plan, 30)
+    expire_at = (datetime.utcnow() + timedelta(days=days)).isoformat() + "Z"
+    # generate credentials
+    config_id = str(uuid.uuid4())
+    secret = secrets.token_urlsafe(24)
+    vpn_user = f"user_{secrets.token_hex(4)}"
+    vpn_password = secrets.token_urlsafe(12)
+    return {
+        "config_id": config_id,
+        "username": vpn_user,
+        "password": vpn_password,
+        "secret": secret,
+        "plan": plan,
+        "expires_at": expire_at,
+        "notes": f"Generated for user {user_id}"
+    }
+
+def send_vpn_credentials(chat_id: int, creds: dict) -> bool:
+    text = (
+        f"🎉 Оплата подтверждена — ваш VPN доступ готов.\n\n"
+        f"Конфиг ID: {creds.get('config_id')}\n"
+        f"Username: {creds.get('username')}\n"
+        f"Password: {creds.get('password')}\n"
+        f"Expires at: {creds.get('expires_at')}\n\n"
+        "Инструкция: используйте эти данные для подключения через Hidify client.\n"
+        "Если нужен отдельный конфиг — напишите в поддержку."
+    )
+    return send_telegram_message(chat_id, text)
+
+# CryptoPay webhook: CryptoPay должен POST JSON с info о инвойсе.
+# Укажите этот URL в настройках CryptoPay (https://<HOST>/cryptopay/webhook).
+@app.route('/cryptopay/webhook', methods=['POST'])
+def cryptopay_webhook():
+    data = request.get_json(force=True, silent=True) or {}
+    # Пример полей: invoice_id, status, hidden_message, payload...
+    status = data.get('status') or data.get('invoice', {}).get('status')
+    hidden = data.get('hidden_message') or data.get('invoice', {}).get('hidden_message') or ''
+    invoice_id = data.get('invoice_id') or data.get('invoice', {}).get('invoice_id')
+    # basic token check if CryptoPay sends header 'Crypto-Pay-API-Token'
+    token_header = (request.headers.get('Crypto-Pay-API-Token') or request.headers.get('X-CryptoPay-Token') or '')
+    if CRYPTO_PAY_TOKEN and token_header and token_header != CRYPTO_PAY_TOKEN:
+        return jsonify(ok=False, error="bad_token"), 403
+
+    # try extract user_id из hidden_message ("User ID: 6263...")
+    user_id = None
+    try:
+        if hidden:
+            # expected format: "User ID: 6263683504"
+            if "User ID" in hidden:
+                user_id = int(''.join(ch for ch in hidden if ch.isdigit()))
+    except Exception:
+        user_id = None
+
+    # only react on paid
+    if status and str(status).lower() in ("paid", "success", "confirmed", "active"):
+        if not user_id:
+            # cannot deliver credentials without user id
+            return jsonify(ok=False, error="no_user"), 400
+        # optionally dedupe by invoice_id (use existing PROCESSED store)
+        if invoice_id:
+            cleanup_processed()
+            if invoice_id in PROCESSED:
+                return jsonify(ok=True, note="already_processed")
+            # mark invoice_id to prevent double-issuing
+            PROCESSED[invoice_id] = ("issued", time.time())
+
+        # generate credentials and send
+        # If you want to tie plan to invoice, try parse description from payload
+        plan = data.get('description') or data.get('invoice', {}).get('description') or "1 месяц"
+        creds = generate_hidify_credentials(plan, user_id)
+        sent = send_vpn_credentials(user_id, creds)
+        return jsonify(ok=True, sent=bool(sent), creds_id=creds.get('config_id'))
+    return jsonify(ok=True, status=status)
+
+# endpoint for marking paid via Telegram Stars (manual / bot integration)
+# Bot or admin can POST here to grant credentials after receiving stars.
+@app.route('/api/confirm_stars', methods=['POST'])
+def confirm_stars():
+    data = request.get_json(force=True, silent=True) or {}
+    user_id = data.get('user_id')
+    plan = data.get('plan', '1 месяц')
+    amount = data.get('amount', 0)
+    # validate caller: for production require secret token/header
+    secret = request.headers.get('X-Internal-Secret') or ''
+    if os.environ.get("INTERNAL_SECRET") and secret != os.environ.get("INTERNAL_SECRET"):
+        return jsonify(ok=False, error="unauthorized"), 403
+    if not user_id:
+        return jsonify(ok=False, error="no_user"), 400
+    creds = generate_hidify_credentials(plan, user_id)
+    sent = send_vpn_credentials(user_id, creds)
+    return jsonify(ok=True, sent=bool(sent), creds_id=creds.get('config_id'))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
