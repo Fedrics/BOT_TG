@@ -129,22 +129,30 @@
 
     function choosePlan(name, price){
       const payload = { plan: name, price: price, ts: Date.now() };
-      console.log('choosePlan ->', payload);
-      if(!tg || !tg.sendData){
-        alert('Откройте мини‑приложение через кнопку в боте.');
-        return;
-      }
-      try{
-        // отправляем на серверный fallback и показываем alert
-        tg.sendData(JSON.stringify(payload)); // optional, keep for compatibility
-        // show friendly confirmation
-        try{ tg.showAlert('Вы выбрали: ' + name + ' ($' + price + '). Платёж будет отправлен в чат.'); }catch(e){ alert('Вы выбрали: ' + name + ' ($' + price + ')'); }
-      }catch(err){
-        console.error('sendData failed', err);
-        try{ tg.showAlert('Ошибка отправки: ' + (err && err.message ? err.message : err)); }catch(e){ alert('Ошибка отправки'); }
-      }
-    }
+      const initData = (tg && tg.initData) ? tg.initData : '';
 
+      // Отправляем на сервер (fallback) — важно: включает initData для верификации и получения user_id
+      fetch('/api/order', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ plan: name, price: price, initData: initData })
+      }).then(async res=>{
+        let j = null;
+        try{ j = await res.json(); }catch(e){}
+        if(res.ok && j && j.ok){
+          try{ tg && tg.showAlert && tg.showAlert('Ссылка на оплату отправлена в чат.'); }catch(e){ alert('Ссылка на оплату отправлена.'); }
+        } else {
+          const err = j && j.error ? j.error : (j ? JSON.stringify(j) : 'server error');
+          try{ tg && tg.showAlert && tg.showAlert('Ошибка создания платежа: ' + err); }catch(e){ alert('Ошибка создания платежа: ' + err); }
+        }
+      }).catch(err=>{
+        try{ tg && tg.showAlert && tg.showAlert('Сетевая ошибка: ' + (err && err.message ? err.message : err)); }catch(e){ alert('Сеть: ' + (err && err.message ? err.message : err)); }
+      });
+
+      // Опционально: всё ещё отправляем sendData в чат (не обязано для fallback)
+      try{ tg && tg.sendData && tg.sendData(JSON.stringify(payload)); }catch(e){}
+    }
+    
     // Поддержка кнопок внутри карточки (делегирование для клика по карточке)
     document.querySelectorAll('.plan').forEach(p=>{
       p.addEventListener('click', e=>{
