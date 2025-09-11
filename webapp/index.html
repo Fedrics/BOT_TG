@@ -5,61 +5,47 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>VPN Mini App</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;background:#07102a;color:#fff;display:flex;flex-direction:column;align-items:center;min-height:100vh;margin:0;padding:24px;}
-    h1{margin-top:24px;font-size:1.6rem}
-    .plans{display:flex;flex-direction:column;gap:16px;width:100%;max-width:420px;margin-top:18px;}
-    .plan{background:linear-gradient(135deg,rgba(20,60,120,0.35),rgba(10,20,60,0.35));padding:22px;border-radius:16px;border:1px solid rgba(255,255,255,0.04);cursor:pointer;text-align:center;font-weight:700}
-    .desc{font-size:0.95rem;font-weight:400;color:#b6caff;margin-top:8px}
-    .close{margin-top:28px;background:none;border:none;color:#9fb7ff;cursor:pointer;text-decoration:underline}
-  </style>
+  <style>body{font-family:Arial,Helvetica,sans-serif;background:#07102a;color:#fff;padding:24px;}</style>
 </head>
 <body>
   <h1>↓ Выбери план ↓</h1>
-  <div class="plans">
-    <div class="plan" id="basic">
-      Basic — $5
-      <div class="desc">1 месяц, базовая скорость</div>
-    </div>
-    <div class="plan" id="premium">
-      Premium — $10
-      <div class="desc">3 месяца, высокая скорость</div>
-    </div>
-    <div class="plan" id="ultimate">
-      Ultimate — $15
-      <div class="desc">12 месяцев, максимальная скорость</div>
-    </div>
+  <div>
+    <button onclick="choose('Basic',5)">Basic — $5</button>
+    <button onclick="choose('Premium',10)">Premium — $10</button>
+    <button onclick="choose('Ultimate',15)">Ultimate — $15</button>
   </div>
-  <button class="close" onclick="Telegram.WebApp.close()">Close App</button>
 
   <script>
     const tg = window.Telegram?.WebApp;
-    if (tg) {
-      try { tg.ready(); } catch(e){ console.warn('tg.ready', e); }
-    } else {
-      console.warn('Telegram.WebApp not available');
-    }
+    if (tg) try { tg.ready(); } catch(e){}
 
-    function sendPayload(name, price) {
-      const payload = { plan: name, price: price, ts: Date.now() };
-      console.log('Preparing to sendData:', payload);
-      if (!window.Telegram || !Telegram.WebApp || !Telegram.WebApp.sendData) {
-        alert('Откройте мини‑приложение через кнопку в боте (в Telegram).');
-        return;
-      }
+    async function choose(plan, price){
+      const payload = {
+        plan, price,
+        initData: (Telegram && Telegram.WebApp && Telegram.WebApp.initData) ? Telegram.WebApp.initData : ''
+      };
+
+      // локальный POST на ваш сервер
       try {
-        Telegram.WebApp.sendData(JSON.stringify(payload));
-        console.log('Telegram.WebApp.sendData called');
-        try { Telegram.WebApp.showAlert('Вы выбрали: ' + name + ' ($' + price + ') — данные отправлены боту.'); } catch(e){ alert('Вы выбрали: ' + name + ' ($' + price + ')'); }
-      } catch (err) {
-        console.error('sendData error', err);
-        try { Telegram.WebApp.showAlert('Ошибка отправки: ' + err.message); } catch(e){ alert('Ошибка отправки: ' + err.message); }
+        const res = await fetch('/api/order', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const j = await res.json();
+        if (res.ok && j.ok) {
+          try { Telegram.WebApp.showAlert('Ссылка на оплату отправлена в чат.'); } catch(e){ alert('Ссылка отправлена.'); }
+        } else {
+          const err = j && j.error ? j.error : 'server_error';
+          try { Telegram.WebApp.showAlert('Ошибка: ' + err); } catch(e){ alert('Ошибка: ' + err); }
+        }
+      } catch (e){
+        try { Telegram.WebApp.showAlert('Сетевая ошибка: ' + e.message); } catch(err){ alert('Сетевая ошибка'); }
       }
-    }
 
-    document.getElementById('basic').addEventListener('click', ()=> sendPayload('Basic', 5));
-    document.getElementById('premium').addEventListener('click', ()=> sendPayload('Premium', 10));
-    document.getElementById('ultimate').addEventListener('click', ()=> sendPayload('Ultimate', 15));
+      // опционально отправляем sendData (не обязателен при fallback)
+      try { Telegram.WebApp.sendData(JSON.stringify({plan, price})); } catch(e){}
+    }
   </script>
 </body>
 </html>
