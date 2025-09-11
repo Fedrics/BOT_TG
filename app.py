@@ -54,21 +54,35 @@ def create_crypto_pay_invoice(plan: str, price, user_id: int):
             "description": f"VPN тариф: {plan}",
             "hidden_message": f"User ID: {user_id}"
         }
+        print("create_crypto_pay_invoice: payload=", payload)
         r = requests.post(f"{CRYPTO_PAY_API}/createInvoice",
                           json=payload,
                           headers={"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN},
                           timeout=15)
-        j = r.json()
-        return j.get('result', {}).get('pay_url')
+        print("create_crypto_pay_invoice: HTTP", r.status_code)
+        print("create_crypto_pay_invoice: response text:", r.text[:2000])
+        try:
+            j = r.json()
+        except Exception as e:
+            print("create_crypto_pay_invoice: json parse error:", e)
+            return None
+        pay_url = j.get('result', {}).get('pay_url')
+        print("create_crypto_pay_invoice: pay_url=", pay_url)
+        return pay_url
     except Exception as e:
-        print("create_invoice error:", e)
+        print("create_crypto_pay_invoice error:", e)
         return None
 
 def send_telegram_message(chat_id: int, text: str) -> bool:
     try:
         url = f"https://api.telegram.org/bot{API_TOKEN}/sendMessage"
-        r = requests.post(url, json={"chat_id": chat_id, "text": text}, timeout=15)
-        return r.ok and r.json().get("ok", False)
+        payload = {"chat_id": chat_id, "text": text}
+        r = requests.post(url, json=payload, timeout=15)
+        print("send_telegram_message: HTTP", r.status_code)
+        print("send_telegram_message: response text:", r.text)
+        ok = r.ok and r.json().get("ok", False)
+        print("send_telegram_message: ok =", ok)
+        return ok
     except Exception as e:
         print("sendMessage error:", e)
         return False
@@ -110,6 +124,22 @@ def api_order():
         return jsonify(ok=False, error="send_failed"), 500
 
     return jsonify(ok=True, pay_url=pay_url, verified=bool(verified))
+
+# Добавить тестовый endpoint для ручной проверки
+@app.route('/testinvoice', methods=['POST'])
+def test_invoice():
+    data = request.get_json(force=True, silent=True) or {}
+    user_id = data.get('user_id')
+    plan = data.get('plan', 'TestPlan')
+    price = data.get('price', 0.01)
+    if not user_id:
+        return jsonify(ok=False, error="no_user_id"), 400
+    pay_url = create_crypto_pay_invoice(plan, price, user_id)
+    if not pay_url:
+        return jsonify(ok=False, error="invoice_failed"), 500
+    text = f"Test invoice {plan} ${price}\\n{pay_url}"
+    sent = send_telegram_message(int(user_id), text)
+    return jsonify(ok=True, pay_url=pay_url, sent=bool(sent))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
