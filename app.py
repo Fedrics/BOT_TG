@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
-import os, hmac, hashlib, json, requests
+import os, hmac, hashlib, json, requests, time
 from urllib.parse import parse_qs
 
 app = Flask(__name__, static_folder='static', template_folder='webapp')
@@ -71,6 +71,23 @@ def send_telegram_message(chat_id: int, text: str) -> bool:
     except Exception:
         return False
 
+# idempotency store: query_id -> (pay_url, ts)
+PROCESSED = {}
+IDEMPOTENCY_TTL = 300  # seconds
+
+def cleanup_processed():
+    now = time.time()
+    to_del = [k for k,v in PROCESSED.items() if now - v[1] > IDEMPOTENCY_TTL]
+    for k in to_del:
+        PROCESSED.pop(k, None)
+
+def get_query_id_from_init(init_data: str):
+    try:
+        parsed = parse_qs(init_data, keep_blank_values=True)
+        return parsed.get('query_id', [''])[0] or None
+    except Exception:
+        return None
+
 @app.route('/api/order', methods=['POST'])
 def api_order():
     data = request.get_json(force=True, silent=True) or {}
@@ -81,21 +98,33 @@ def api_order():
     if not plan or price is None or not init_data:
         return jsonify(ok=False, error="bad_request"), 400
 
+    # clean expired entries
+    cleanup_processed()
+
+    query_id = get_query_id_from_init(init_data)
+    if query_id and query_id in PROCESSED:
+        # already processed — return existing pay_url (idempotent)
+        existing_pay_url = PROCESSED[query_id][0]
+        return jsonify(ok=True, pay_url=existing_pay_url, duplicate=True)
+
     verified = verify_webapp_data(init_data, API_TOKEN)
     user_id = get_user_id_from_init(init_data)
     if not user_id:
         return jsonify(ok=False, error="no_user"), 400
 
-    # allow fallback if verification failed
     pay_url = create_crypto_pay_invoice(plan, price, user_id)
     if not pay_url:
         return jsonify(ok=False, error="invoice_failed"), 500
+
+    # store result for idempotency keyed by query_id (if present)
+    if query_id:
+        PROCESSED[query_id] = (pay_url, time.time())
 
     text = f"Вы выбрали тариф {plan} (${price}).\nОплатите по ссылке:\n{pay_url}"
     if not send_telegram_message(user_id, text):
         return jsonify(ok=False, error="send_failed"), 500
 
-    return jsonify(ok=True, pay_url=pay_url, verified=bool(verified))
+    return jsonify(ok=True, pay_url=pay_url, verified=bool(verified), duplicate=False)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
