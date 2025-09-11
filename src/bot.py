@@ -44,7 +44,7 @@ def set_language(message):
     webapp_markup.add(
         types.InlineKeyboardButton(
             "🌐 Open VPN Shop" if lang == 'en' else "🌐 Открыть магазин",
-            web_app=types.WebAppInfo(url=os.environ.get("MINI_APP_URL", "https://bot-tg-aai9.onrender.com/"))
+            web_app=types.WebAppInfo(url=os.environ.get("MINI_APP_URL", "https://bottg-production-90b1.up.railway.app/"))
         )
     )
     bot.send_message(message.chat.id, texts[lang]['shop'], reply_markup=webapp_markup)
