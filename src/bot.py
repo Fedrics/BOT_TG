@@ -39,7 +39,7 @@ def set_language(message):
     webapp_markup.add(
         types.InlineKeyboardButton(
             "🌐 Open VPN Shop" if lang == 'en' else "🌐 Открыть магазин",
-            web_app=types.WebAppInfo(url="https://bot-tg-b2bs.onrender.com/")  # Замените на свой URL!
+            web_app=types.WebAppInfo(url="https://bot-tg-aai9.onrender.com/")  # Замените на свой URL!
         )
     )
     bot.send_message(
