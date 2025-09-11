@@ -50,15 +50,23 @@ def set_language(message):
 
 @bot.message_handler(content_types=['web_app_data'])
 def handle_web_app_data(message):
-    lang = get_lang(message)
-    data = json.loads(message.web_app_data.data)
-    plan = data.get('plan')
-    price = data.get('price')
-    pay_url = create_crypto_pay_invoice(plan, price, message.from_user.id)
-    bot.send_message(
-        message.chat.id,
-        texts[lang]['pay'].format(plan=plan, price=price) + f"\n{pay_url}"
-    )
+    try:
+        print("Получены данные из Mini App:", message.web_app_data.data)
+        lang = get_lang(message)
+        data = json.loads(message.web_app_data.data)
+        plan = data.get('plan')
+        price = data.get('price')
+        pay_url = create_crypto_pay_invoice(plan, price, message.from_user.id)
+        if pay_url:
+            bot.send_message(
+                message.chat.id,
+                texts[lang]['pay'].format(plan=plan, price=price) + f"\n{pay_url}"
+            )
+        else:
+            bot.send_message(message.chat.id, "Ошибка при создании платежа. Попробуйте позже.")
+    except Exception as e:
+        print("Ошибка в обработчике web_app_data:", e)
+        bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
 
 def create_crypto_pay_invoice(plan, price, user_id):
     url = "https://pay.crypt.bot/api/createInvoice"
@@ -70,8 +78,14 @@ def create_crypto_pay_invoice(plan, price, user_id):
         "hidden_message": f"User ID: {user_id}"
     }
     resp = requests.post(url, json=data, headers=headers)
-    invoice = resp.json()
-    return invoice['result']['pay_url']
+    print("Ответ Crypto Pay:", resp.text)
+    try:
+        invoice = resp.json()
+        return invoice['result']['pay_url']
+    except Exception as e:
+        print("Ошибка при разборе ответа Crypto Pay:", e)
+        return None
 
 if __name__ == "__main__":
+    print("Бот запущен и ожидает события...")
     bot.polling(none_stop=True)

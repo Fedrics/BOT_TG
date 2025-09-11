@@ -215,9 +215,7 @@
     animate();
 
     function choosePlan(name, price) {
-      const data = {plan: name, price: price};
-      Telegram.WebApp.sendData(JSON.stringify(data));
-      Telegram.WebApp.showAlert(`Вы выбрали: ${name} ($${price})`);
+      Telegram.WebApp.sendData(JSON.stringify({plan: name, price: price}));
     }
     Telegram.WebApp.ready();
   </script>
